@@ -5,7 +5,7 @@ imgproxyurl is a small library to help you build urls for [imgproxy](https://git
 This is a WIP.
 
 ### Usage
-Have a look at an example to understand what's it all about:
+Specify the key and the salt, set the width, height and the resizing type, and get the absolute resulting url:
 ```go
 url, err := imgproxyurl.
 		New("/path/to/image.jpg").
@@ -19,16 +19,19 @@ url, err := imgproxyurl.
 // url = "http://localhost:8080/a3eK6TO-pMwXvXtakEZjTov3qDrUoDeGL1Xb_1p-Ue4/w:400/h:300/rt:fit/L3BhdGgvdG8vaW1hZ2UuanBn"
 ```
 
-Load key and salt from environment variables `IMGPROXY_KEY` and `IMGPROXY_SALT`:
+Load key and salt from environment variables `IMGPROXY_KEY` and `IMGPROXY_SALT`; specify a `png` resulting format, specify gravity with floating-point offsets, set quality to 60 and get a relative url:
 ```go
 url, err := imgproxyurl.
 		NewFromEnvironment("/path/to/image.jpg").
-		SetWidth(400).
-		SetHeight(300).
-		SetResizingType(imgproxyurl.ResizingTypeFit).
+		SetExtension("png").
+		SetGravity(imgproxyurl.GravityTypeFocusPoint, imgproxyurl.GravityFloatOffsets{
+		    X: 0.1,
+		    Y: 0.5,
+		}).
+		SetQuality(60).
 		Get()
 
-// url = "/a3eK6TO-pMwXvXtakEZjTov3qDrUoDeGL1Xb_1p-Ue4/w:400/h:300/rt:fit/L3BhdGgvdG8vaW1hZ2UuanBn"
+// url = "/jPfU6erScy_cRLYP_pSnwGQ7cGpZCrtuWUSiAWy69mY/g:fp:0.100:0.500/q:60/L3BhdGgvdG8vaW1hZ2UuanBn.png"
 ```
 
 ### Supported processing options
