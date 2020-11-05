@@ -1,4 +1,4 @@
-module imgproxyurl
+module github.com/penyaev/imgproxyurl
 
 go 1.15
 
