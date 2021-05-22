@@ -17,6 +17,7 @@ if err := imgproxyurl.SetKeySalt(
 }
 imgproxyurl.SetEndpoint("https://example.com/")
 
+
 // create a url
 u, err := imgproxyurl.New(
     "local:///o/t/otRO1jl3IUVa.jpg",
@@ -26,7 +27,7 @@ u, err := imgproxyurl.New(
 if err != nil {
     log.Fatalln(err)
 }
-fmt.Printf("%+v\n", u) // https://example.com/vBTOFF_QqWqQPVCdQdjiTac8sn7EEVIh3c1UidkcvAM/h:200/w:200/bG9jYWw6Ly8vby90L290Uk8xamwzSVVWYS5qcGc
+fmt.Println(u) // https://example.com/vBTOFF_QqWqQPVCdQdjiTac8sn7EEVIh3c1UidkcvAM/h:200/w:200/bG9jYWw6Ly8vby90L290Uk8xamwzSVVWYS5qcGc
 
 
 // create a copy with some options changed
@@ -40,7 +41,7 @@ u2, err := u.WithOptions(
 if err != nil {
     log.Fatalln(err)
 }
-fmt.Printf("%+v\n", u2) // https://example.com/insecure/h:200/rt:fill/w:200/plain/local%3A%2F%2F%2Fo%2Ft%2FotRO1jl3IUVa.jpg@png
+fmt.Println(u2) // https://example.com/insecure/h:200/rt:fill/w:200/plain/local%3A%2F%2F%2Fo%2Ft%2FotRO1jl3IUVa.jpg@png
 
 
 // playing with gravity
@@ -66,7 +67,7 @@ u3, err := u2.WithOptions(
 if err != nil {
     log.Fatalln(err)
 }
-fmt.Printf("%+v\n", u3) // https://example.com/insecure/ex:true:no:100:200/g:fp:0.3:0.4/h:200/rt:fill/w:200/plain/local%3A%2F%2F%2Fo%2Ft%2FotRO1jl3IUVa.jpg@png
+fmt.Println(u3) // https://example.com/insecure/ex:true:no:100:200/g:fp:0.3:0.4/h:200/rt:fill/w:200/plain/local%3A%2F%2F%2Fo%2Ft%2FotRO1jl3IUVa.jpg@png
 ```
 
 ### Supported processing options
