@@ -7,186 +7,181 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/pkg/errors"
-	"os"
+	"net/url"
+	"sort"
 	"strings"
 )
 
-// Url represents an imgproxy url.
-//
-// Use url.Set* functions to set various options and finnaly use Url.Get() to get the url.
-// If any error occurs, it is returned from Url.Get() method. This is so to make method chaining possible.
-// Only the first occurred error is returned.
-//
-// A typical usage would look like:
-// 		url, err := imgproxyurl.NewFromEnvironment("local:///0/D/0DJ2jdB5DDJa.jpg").
-//						SetHeight(400).
-//						SetWidth(300).
-//						SetResizingType(imgproxyurl.ResizingTypeFit)
-//						Get()
+var std = &Url{
+	options: make(map[string]string),
+}
+
 type Url struct {
-	key               []byte
-	salt              []byte
-	processingOptions map[string]string
-	imageUrl          string
-	err               error
-	plainImageUrl     bool
-	extension         string
+	key            []byte
+	salt           []byte
+	options        map[string]string
+	sourceUrl      string
+	plainSourceUrl bool
+	format         string
+	endpoint       string
+	signatureSize  int
 }
 
-// New creates Url
-func New(imageUrl string) *Url {
-	return &Url{
-		imageUrl:          imageUrl,
-		processingOptions: make(map[string]string),
-	}
-}
-
-// NewFromEnvironment creates Url while trying to get key and salt values
-// from environment variables IMGPROXY_KEY and IMGPROXY_SALT
-func NewFromEnvironment(imageUrl string) *Url {
-	url := New(imageUrl)
-	key := os.Getenv("IMGPROXY_KEY")
-	salt := os.Getenv("IMGPROXY_SALT")
-
-	if key != "" && salt != "" {
-		url.SetKey(key)
-		url.SetSalt(salt)
-	} else if key != "" && salt == "" {
-		url.setError(errors.New("salt is missing"))
-	} else if key == "" && salt != "" {
-		url.setError(errors.New("key is missing"))
-	}
-
-	return url
-}
-
-// Get returns an imgproxy url for the given imageUrl
-//
-// This is a shortnand for New(imageUrl).Get()
-func Get(imageUrl string) (string, error) {
-	return New(imageUrl).Get()
-}
-
-// GetFromEnvironment returns an imgproxy url for the given imageUrl,
-// having taken the key and salt from the environment variables IMGPROXY_KEY and IMGPROXY_SALT.
-//
-// This is a shortnand for NewFromEnvironment(imageUrl).Get()
-func GetFromEnvironment(imageUrl string) (string, error) {
-	return NewFromEnvironment(imageUrl).Get()
-}
-
-func (url *Url) setError(err error) {
-	if url.err != nil {
-		return
-	}
-
-	url.err = err
-}
-
-// SetKey set the imgproxy key.
-//
-// key is expected to be a hex-encoded string
-func (url *Url) SetKey(key string) *Url {
-	bytes, err := hex.DecodeString(key)
+func New(sourceUrl string, options ...Option) (*Url, error) {
+	result, err := std.WithOptions(options...)
 	if err != nil {
-		url.setError(errors.WithMessage(err, "key"))
-		return url
+		return nil, err
 	}
-	url.key = bytes
-	return url
+	result.sourceUrl = sourceUrl
+	return result, nil
 }
 
-// SetSalt set the imgproxy salt.
-//
-// salt is expected to be a hex-encoded string
-func (url *Url) SetSalt(salt string) *Url {
-	bytes, err := hex.DecodeString(salt)
-	if err != nil {
-		url.setError(errors.WithMessage(err, "salt"))
-		return url
+func (u *Url) WithOptions(options ...Option) (*Url, error) {
+	return u.clone(options)
+}
+
+func (u *Url) String() string {
+	p := u.getPath()
+
+	var signature string
+	if u.key == nil || u.salt == nil {
+		signature = "insecure"
+	} else {
+		signature = u.sign(p)
 	}
-	url.salt = bytes
-	return url
+
+	var result string
+	signedPath := fmt.Sprintf("/%s%s", signature, p)
+
+	if u.endpoint != "" {
+		end := len(u.endpoint)
+		if u.endpoint[end-1] == '/' {
+			end--
+		}
+		result = u.endpoint[:end] + signedPath
+	} else {
+		result = signedPath
+	}
+
+	return result
 }
 
-// SetExtension set the the resulting image format
-func (url *Url) SetExtension(extension string) *Url {
-	url.extension = extension
-	return url
+func (u *Url) sign(str string) string {
+	mac := hmac.New(sha256.New, u.key)
+	mac.Write(u.salt)
+	mac.Write([]byte(str))
+
+	size := u.signatureSize
+	if size == 0 {
+		size = 32
+	}
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil)[:size])
 }
 
-func (url *Url) setOption(name string, arguments ...string) {
-	url.processingOptions[name] = strings.Join(arguments, ":")
+func (u *Url) getPath() string {
+	var urlParts []string
+	for name, option := range u.options {
+		s := name
+		if option != "" {
+			s += ":" + option
+		}
+		urlParts = append(urlParts, s)
+	}
+	// sort url parts to make sure the resulting url is stable (to make unit test work)
+	sort.Slice(urlParts, func(i, j int) bool {
+		return urlParts[i] < urlParts[j]
+	})
+	urlParts = append(urlParts, u.encodeSourceUrl())
+	return "/" + strings.Join(urlParts, "/")
 }
 
-func (url *Url) unsetOption(name string) {
-	delete(url.processingOptions, name)
-}
-
-func (url *Url) encodeImageUrl() string {
+func (u *Url) encodeSourceUrl() string {
 	var encodedUrl string
-	if url.plainImageUrl {
-		encodedUrl = "plain/" + url.imageUrl
-		if url.extension != "" {
-			encodedUrl += "@" + url.extension
+	if u.plainSourceUrl {
+		encodedUrl = "plain/" + url.QueryEscape(u.sourceUrl)
+		if u.format != "" {
+			encodedUrl += "@" + u.format
 		}
 	} else {
-		encodedUrl = base64.RawURLEncoding.EncodeToString([]byte(url.imageUrl))
-		if url.extension != "" {
-			encodedUrl += "." + url.extension
+		encodedUrl = base64.RawURLEncoding.EncodeToString([]byte(u.sourceUrl))
+		if u.format != "" {
+			encodedUrl += "." + u.format
 		}
 	}
 	return encodedUrl
 }
 
-func (url *Url) getPath() string {
-	var urlParts []string
-	for name, arguments := range url.processingOptions {
-		urlParts = append(urlParts, name+":"+arguments)
+func (u *Url) applyOptions(options ...Option) error {
+	for _, option := range options {
+		switch option.(type) {
+		case ProcessingOption:
+			u.options[option.(ProcessingOption).Key()] = option.(ProcessingOption).String()
+		case Format:
+			u.format = option.(Format).Format
+		case SourceUrl:
+			u.sourceUrl = option.(SourceUrl).Url
+		case PlainSourceUrl:
+			u.plainSourceUrl = option.(PlainSourceUrl).Plain
+		case Key:
+			key := option.(Key).Key
+			bytes, err := hex.DecodeString(key)
+			if err != nil {
+				return errors.WithMessage(err, "hexdecode")
+			}
+
+			u.key = bytes
+		case Salt:
+			salt := option.(Salt).Salt
+			bytes, err := hex.DecodeString(salt)
+			if err != nil {
+				return errors.WithMessage(err, "hexdecode")
+			}
+
+			u.salt = bytes
+		case KeyRaw:
+			u.key = option.(KeyRaw).KeyRaw
+		case SaltRaw:
+			u.salt = option.(SaltRaw).SaltRaw
+		case Endpoint:
+			u.endpoint = option.(Endpoint).Endpoint
+		case SignatureSize:
+			u.signatureSize = option.(SignatureSize).SignatureSize
+		}
 	}
-	urlParts = append(urlParts, url.encodeImageUrl())
-	return "/" + strings.Join(urlParts, "/")
+
+	return nil
 }
 
-func (url *Url) sign(str string) string {
-	mac := hmac.New(sha256.New, url.key)
-	mac.Write(url.salt)
-	mac.Write([]byte(str))
-
-	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-}
-
-// Get returns the resulting imgproxy url.
-//
-// If a key and a salt were provided, the url will be signed.
-// If any errors occured during the previous Set* functions calls, the first of them will be returned.
-func (url *Url) Get() (string, error) {
-	if url.imageUrl == "" {
-		url.setError(errors.New("image url is missing"))
+func (u *Url) clone(addOptions []Option) (*Url, error) {
+	clone := &Url{
+		key:            u.key,
+		salt:           u.salt,
+		options:        make(map[string]string, len(u.options)),
+		sourceUrl:      u.sourceUrl,
+		plainSourceUrl: u.plainSourceUrl,
+		format:         u.format,
+		endpoint:       u.endpoint,
+		signatureSize:  u.signatureSize,
 	}
-
-	if url.err != nil {
-		return "", url.err
+	for key, value := range u.options {
+		clone.options[key] = value
 	}
-
-	path := url.getPath()
-
-	var signature string
-	if url.key != nil && url.salt != nil {
-		signature = url.sign(path)
-	} else {
-		signature = "insecure"
-	}
-
-	return fmt.Sprintf("/%s%s", signature, path), nil
-}
-
-//GetAbsolute returns the resulting imgproxy absolute url by prepending suffix in front.
-func (url *Url) GetAbsolute(prefix string) (string, error) {
-	result, err := url.Get()
+	err := clone.applyOptions(addOptions...)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 
-	return prefix + result, nil
+	return clone, nil
+}
+
+func SetKeySalt(key string, salt string) error {
+	return std.applyOptions(Key{key}, Salt{salt})
+}
+
+func SetKeySaltRaw(key []byte, salt []byte) error {
+	return std.applyOptions(KeyRaw{key}, SaltRaw{salt})
+}
+
+func SetEndpoint(endpoint string) {
+	_ = std.applyOptions(Endpoint{endpoint})
 }
