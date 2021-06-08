@@ -5,6 +5,9 @@ imgproxyurl is a small library to help you build urls for [imgproxy](https://git
 This is a WIP.
 
 ### Usage
+You can set options globally or per-instance. Create a new instance either by calling `imgproxyurl.New` or derive it from an existing one: `u.WithOptions()`.
+
+Many imgproxy options are supported (see "Supported processing options" section below). Nevertheless, there's also a way to set an arbitrary option manually: `imgproxy.Raw{}` 
 ```go
 // Some settings can be set globally (you'll be able to override them for specific instances)
 
@@ -37,11 +40,12 @@ u2, err := u.WithOptions(
     imgproxyurl.Format{"png"},
     imgproxyurl.PlainSourceUrl{true},
     imgproxyurl.ResizingType{imgproxyurl.ResizingTypeFill},
+    imgproxyurl.Raw{OptionKey: "raw", Parameters: []interface{}{1, 2, "test"}},
 )
 if err != nil {
     log.Fatalln(err)
 }
-fmt.Println(u2) // https://example.com/insecure/h:200/rt:fill/w:200/plain/local%3A%2F%2F%2Fo%2Ft%2FotRO1jl3IUVa.jpg@png
+fmt.Println(u2) // https://example.com/insecure/h:200/raw:1:2:test/rt:fill/w:200/plain/local%3A%2F%2F%2Fo%2Ft%2FotRO1jl3IUVa.jpg@png
 
 
 // playing with gravity
@@ -71,6 +75,8 @@ fmt.Println(u3) // https://example.com/insecure/ex:true:no:100:200/g:fp:0.3:0.4/
 ```
 
 ### Supported processing options
+You can find implementations of these processing options in `options.go`
+
 - [resizing type](https://docs.imgproxy.net/#/generating_the_url_advanced?id=resizing-type)
 - [resizing algorithm](https://docs.imgproxy.net/#/generating_the_url_advanced?id=resizing-algorithm)
 - [width](https://docs.imgproxy.net/#/generating_the_url_advanced?id=width)
@@ -81,10 +87,16 @@ fmt.Println(u3) // https://example.com/insecure/ex:true:no:100:200/g:fp:0.3:0.4/
 - [gravity](https://docs.imgproxy.net/#/generating_the_url_advanced?id=gravity)
 - [crop](https://docs.imgproxy.net/#/generating_the_url_advanced?id=crop)
 - [padding](https://docs.imgproxy.net/#/generating_the_url_advanced?id=padding)
+- [trim](https://docs.imgproxy.net/#/generating_the_url_advanced?id=trim)
+- [rotate](https://docs.imgproxy.net/#/generating_the_url_advanced?id=rotate)
 - [quality](https://docs.imgproxy.net/#/generating_the_url_advanced?id=quality)
 - [max bytes](https://docs.imgproxy.net/#/generating_the_url_advanced?id=max-bytes)
 - [background](https://docs.imgproxy.net/#/generating_the_url_advanced?id=background)
 - [background alpha](https://docs.imgproxy.net/#/generating_the_url_advanced?id=background-alpha)
+- [blur](https://docs.imgproxy.net/#/generating_the_url_advanced?id=blur)
+- [sharpen](https://docs.imgproxy.net/#/generating_the_url_advanced?id=sharpen)
 - [preset](https://docs.imgproxy.net/#/generating_the_url_advanced?id=preset)
+- [auto_rotate](https://docs.imgproxy.net/#/generating_the_url_advanced?id=auto-rotate)
+- [filename](https://docs.imgproxy.net/#/generating_the_url_advanced?id=filename)
 
 Not all options are supported at the moment.

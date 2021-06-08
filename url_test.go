@@ -46,6 +46,18 @@ func TestUrl_applyOptions(t *testing.T) {
 				"w": "200",
 			},
 		}, wantErr: false},
+		{name: "raw options", fields: fields{
+			options: map[string]string{
+				"z": "50",
+				"h": "100",
+			},
+		}, args: args{options: []Option{Raw{OptionKey: "raw", Parameters: []interface{}{1, 2, "test"}}}}, want: &Url{
+			options: map[string]string{
+				"z":   "50",
+				"h":   "100",
+				"raw": "1:2:test",
+			},
+		}, wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

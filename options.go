@@ -261,18 +261,19 @@ func (o Gravity) String() string {
 	return format(o.Key(), arguments...)
 }
 
-//When set, imgproxy will apply the sharpen filter to the resulting image. sigma the size of a mask imgproxy will use.
+//When set, imgproxy will apply the sharpen filter to the resulting image
 //
 //As an approximate guideline, use 0.5 sigma for 4 pixels/mm (display resolution), 1.0 for 12 pixels/mm and 1.5 for 16 pixels/mm (300 dpi == 12 pixels/mm).
 type Sharpen struct {
-	Sharpen float64
+	//Sigma is the size of a mask imgproxy will use.
+	Sigma float64
 }
 
 func (Sharpen) Key() string {
 	return "sh"
 }
 func (o Sharpen) String() string {
-	return format(o.Key(), o.Sharpen)
+	return format(o.Key(), o.Sigma)
 }
 
 //Redefines quality of the resulting image, percentage. When 0, quality is assumed based on IMGPROXY_QUALITY and IMGPROXY_FORMAT_QUALITY.
@@ -349,6 +350,87 @@ func (Presets) Key() string {
 }
 func (o Presets) String() string {
 	return format(o.Key(), strings.Join(o.Presets, ":"))
+}
+
+//Removes surrounding background.
+type Trim struct {
+	// Color similarity tolerance.
+	Threshold int
+	// Hex-coded value of the color that needs to be cut off
+	Color string
+	// When set, imgproxy will cut only equal parts from left and right sides. That means that if 10px of background can be cut off from left and 5px from right then 5px will be cut off from both sides. For example, it can be useful if objects on your images are centered but have non-symmetrical shadow.
+	EqualHor bool
+	// Acts like EqualHor but for top/bottom sides.
+	EqualVer bool
+}
+
+func (Trim) Key() string {
+	return "t"
+}
+func (o Trim) String() string {
+	return format(o.Key(), o.Threshold, o.Color, o.EqualHor, o.EqualVer)
+}
+
+//Rotates the image on the specified angle. The orientation from the image metadata is applied before the rotation unless autorotation is disabled.
+type Rotate struct {
+	//Only 0/90/180/270/etc degrees angles are supported.
+	Angle int
+}
+
+func (Rotate) Key() string {
+	return "rot"
+}
+func (o Rotate) String() string {
+	return format(o.Key(), o.Angle)
+}
+
+//When set, imgproxy will apply the gaussian blur filter to the resulting image
+type Blur struct {
+	//Sigma defines the size of a mask imgproxy will use.
+	Sigma int
+}
+
+func (Blur) Key() string {
+	return "bl"
+}
+func (o Blur) String() string {
+	return format(o.Key(), o.Sigma)
+}
+
+//When set, imgproxy will automatically rotate images based onon the EXIF Orientation parameter (if available in the image meta data). The orientation tag will be removed from the image anyway. Normally this is controlled by the IMGPROXY_AUTO_ROTATE configuration but this procesing option allows the configuration to be set for each request.
+type AutoRotate struct {
+	AutoRotate bool
+}
+
+func (AutoRotate) Key() string {
+	return "ar"
+}
+func (o AutoRotate) String() string {
+	return format(o.Key(), o.AutoRotate)
+}
+
+//Defines a filename for Content-Disposition header. When not specified, imgproxy will get filename from the source url.
+type Filename struct {
+	Filename string
+}
+
+func (Filename) Key() string {
+	return "fn"
+}
+func (o Filename) String() string {
+	return format(o.Key(), o.Filename)
+}
+
+type Raw struct {
+	OptionKey  string
+	Parameters []interface{}
+}
+
+func (o Raw) Key() string {
+	return o.OptionKey
+}
+func (o Raw) String() string {
+	return format(o.Key(), o.Parameters...)
 }
 
 type Format struct {
